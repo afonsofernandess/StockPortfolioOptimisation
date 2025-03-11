@@ -1,23 +1,20 @@
 import pandas as pd
-import os
+import glob
 
-# Define the path to the archive directory
-archive_dir = 'archive'
+# Get all CSV file paths
+csv_files = glob.glob("archive/*.csv")
 
-# List all CSV files in the archive directory
-csv_files = [f for f in os.listdir(archive_dir) if f.endswith('.csv')]
 
-# List to store DataFrames
-dataframes = []
+df_list = [pd.read_csv(csv_files[0])]
 
-# Read each CSV file into a DataFrame and append it to the list
-for csv_file in csv_files:
-    file_path = os.path.join(archive_dir, csv_file)
-    df = pd.read_csv(file_path)
-    dataframes.append(df)
+# Read the rest without headers
+df_list += [pd.read_csv(file, header=None) for file in csv_files[1:]]
 
-# Concatenate all DataFrames into a single DataFrame
-combined_df = pd.concat(dataframes, ignore_index=True)
+# Assign column names from the first file to all
+for df in df_list[1:]:
+    df.columns = df_list[0].columns
 
-# Display the combined DataFrame
-print(combined_df)
+# Concatenate all DataFrames
+final_df = pd.concat(df_list, ignore_index=True)
+
+print(final_df)
