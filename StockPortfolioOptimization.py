@@ -47,6 +47,14 @@ def calculate_average_return(prices):
     daily_returns = calculate_daily_returns(prices)
     return np.mean(daily_returns)
 
+# Normalizes weigths so that the sum is 1 -> constraint
+# @param weights: a vector of asset weights in the portfolio
+# @return: normalized vector of asset weights
+def normalize_weigth(weight):
+    total_weight = sum(weight.values())
+    weight = {k: v / total_weight for k, v in weight.items()}
+    return weight
+
 # ###########################################
 #             Evaluation Function
 # ###########################################
@@ -79,6 +87,25 @@ def objective_function(weights, returns, volatilities):
     sharpe_ratio = portfolio_return / portfolio_volatility
     return sharpe_ratio
 
+# ###########################################
+#             Neighbour Function
+# ###########################################
+
+# Modifies the weight of a randomly selected stock
+# @param weights: a vector of asset weights in the portfolio
+# @return: a slight modified vector of asset weights in the portfolio.
+def generate_neighbour(weights):
+
+    threshold=0.01
+
+    new_weights = weights.copy()
+
+    idx = random.choice(list(weights.keys()))
+    weight_change = random.choice([-threshold, threshold]) #randomly decide whether to add or subtract the threshold
+    new_weights[idx] += weight_change
+    
+    return normalize_weigth(new_weights)
+
 ##########################################
 #         Simple Implementation
 ###########################################
@@ -94,8 +121,7 @@ prices = {
 }
 
 weights = {symbol: random.random() for symbol in symbols}
-total_weight = sum(weights.values()) 
-weights = {action: weight / total_weight for action, weight in weights.items()} # normalizing weigths so that the sum is 1 -> constraint
+weights = normalize_weigth(weights)
 
 profit = [calculate_average_return(prices[symbol]) for symbol in symbols]
 risk = [calculate_volatility(prices[symbol]) for symbol in symbols]
