@@ -45,6 +45,8 @@ def start():
 
     stocks = [stock.split('.')[0] for stock in sorted(os.listdir('archive'))]
 
+    global stock_prices
+
     for stock in stocks:
 
         date_adjClose_list = []
@@ -155,34 +157,40 @@ def generate_neighbor(weights, threshold):
 #         Algortithm Implementation
 ###########################################
 
-def hill_climbing(x0):
+# Hill Climbing Implementation
+# @param initial_solution: a vector of asset weights in the portfolio
+# @param num_neighbors: amount of neighbors to be generated
+def hill_climbing(initial_solution, num_neighbors):
 
     threshold = 0.01
-
-    x = x0
+    x = initial_solution
     while True:
 
         neighbors = []
-        for i in range (1,5):
+        for i in range (1,num_neighbors):
             neighbors.insert(0,generate_neighbor(x,threshold))
 
-        # find the neighbor with the highest function value
         best_neighbor = max(neighbors, key=evaluate_solution)
 
-        if evaluate_solution(best_neighbor) <= evaluate_solution(x): # if the best neighbor is not better than x, stop
+        if evaluate_solution(best_neighbor) <= evaluate_solution(x):
             return x
-        x = best_neighbor # otherwise, continue with the best neighbor
+        x = best_neighbor
 
 ##########################################
 #         Simple Implementation
 ###########################################
+
 # My idea here was to create a list with a few stocks and set random weights to each stock to start with,
 # then for each stock compute the risk (risk), the return (profit) and evaluate it by returning the sharpe ratio (objective_function)
 
 if __name__ == '__main__':
 
     initial_solution = start()
+    initial_solution_ratio = evaluate_solution(initial_solution)
+    print("initial_solution_ratio ", initial_solution_ratio)
 
-    final_solution = hill_climbing(initial_solution)
-    sharpe_ratio = evaluate_solution(final_solution)
-    print(sharpe_ratio)
+    num_neighbors = 7
+    final_solution = hill_climbing(initial_solution, num_neighbors)
+    hill_climbing_ratio = evaluate_solution(final_solution)
+
+    print("hill_climbing_ratio ",  hill_climbing_ratio)
