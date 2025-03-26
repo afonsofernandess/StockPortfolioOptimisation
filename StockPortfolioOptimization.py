@@ -4,11 +4,18 @@ import numpy as np
 import os
 
 
+# Global Variables
+
+stock_prices = {}
+
 # ###########################################
 #             Auxiliar Functions
 # ###########################################
 
+# Get data range as the user input
+# @return: valid data range
 def get_date_range():
+
     dates = pd.date_range('2000-01-02', '2020-04-02')
     print("Choose a start and end date for the analysis (Format: YYYY-MM-DD)")
     while True:
@@ -27,6 +34,33 @@ def get_date_range():
         print("Please enter a valid date")
         exit(1)
     return pd.date_range(start_date, end_date)
+
+
+# Initializate the program
+# @return: initial solution of portifolio distribution
+def start():
+
+    print("Stock Portfolio Optimization\n")
+    valid_dates = get_date_range()
+
+    stocks = [stock.split('.')[0] for stock in sorted(os.listdir('archive'))]
+
+    for stock in stocks:
+
+        date_adjClose_list = []
+        pc = pd.read_csv(f'archive/{stock}.csv', usecols=['Date', 'Adj Close'])
+        pc['Date'] = pd.to_datetime(pc['Date'])
+        pc = pc[pc['Date'].isin(valid_dates)]
+
+        for index, row in pc.iterrows():
+            date_adjClose_list.append(row['Adj Close'])
+        if len(date_adjClose_list) > 0:
+            stock_prices[stock] = pd.Series(date_adjClose_list)
+
+    weights = {symbol: random.random() for symbol in stock_prices.keys()}
+    weights = normalize_weight(weights)
+
+    return weights
 
 
 # Evaluates the profit per day
@@ -87,12 +121,14 @@ def calculate_portfolio_risk(weights, risks):
 
 # Evaluation Function
 # @param weights: a vector of asset weights in the portfolio
-# @param returns: a vector of the returns for each asset in the portfolio
-# @param risks: a vector of the returns for each asset in the portfolio
 # @return: ratio of the portfolio's return to its risk
-def objective_function(weights, returns, risks):
-    portfolio_return = calculate_portfolio_return(weights, returns)
-    portfolio_risk = calculate_portfolio_risk(weights, risks)
+def evaluate_solution(weights):
+
+    profit = [calculate_average_return(stock_prices[symbol]) for symbol in stock_prices.keys()]
+    risk = [calculate_risk(stock_prices[symbol]) for symbol in stock_prices.keys()]
+
+    portfolio_return = calculate_portfolio_return(weights, profit)
+    portfolio_risk = calculate_portfolio_risk(weights, risk)
     sharpe_ratio = portfolio_return / portfolio_risk
     return sharpe_ratio
 
@@ -104,8 +140,7 @@ def objective_function(weights, returns, risks):
 # Modifies the weight of a randomly selected stock
 # @param weights: a vector of asset weights in the portfolio
 # @return: a slight modified vector of asset weights in the portfolio.
-def generate_neighbour(weights):
-    threshold = 0.01
+def generate_neighbor(weights, threshold):
 
     new_weights = weights.copy()
 
@@ -117,33 +152,37 @@ def generate_neighbour(weights):
 
 
 ##########################################
+#         Algortithm Implementation
+###########################################
+
+def hill_climbing(x0):
+
+    threshold = 0.01
+
+    x = x0
+    while True:
+
+        neighbors = []
+        for i in range (1,5):
+            neighbors.insert(0,generate_neighbor(x,threshold))
+
+        # find the neighbor with the highest function value
+        best_neighbor = max(neighbors, key=evaluate_solution)
+
+        if evaluate_solution(best_neighbor) <= evaluate_solution(x): # if the best neighbor is not better than x, stop
+            return x
+        x = best_neighbor # otherwise, continue with the best neighbor
+
+##########################################
 #         Simple Implementation
 ###########################################
 # My idea here was to create a list with a few stocks and set random weights to each stock to start with,
 # then for each stock compute the risk (risk), the return (profit) and evaluate it by returning the sharpe ratio (objective_function)
+
 if __name__ == '__main__':
-    print("Stock Portfolio Optimization\n")
-    dates = pd.date_range('2000-01-02', '2020-04-02')
-    stocks = [stock.split('.')[0] for stock in sorted(os.listdir('archive'))]
-    valid_dates = get_date_range()
 
-    stock_prices = {}
+    initial_solution = start()
 
-    for stock in stocks:
-        date_adjClose_list = []
-        pc = pd.read_csv(f'archive/{stock}.csv', usecols=['Date', 'Adj Close'])
-        pc['Date'] = pd.to_datetime(pc['Date'])
-        pc = pc[pc['Date'].isin(valid_dates)]
-        for index, row in pc.iterrows():
-            date_adjClose_list.append(row['Adj Close'])
-        if len(date_adjClose_list) > 0:
-            stock_prices[stock] = pd.Series(date_adjClose_list)
-
-    weights = {symbol: random.random() for symbol in stock_prices.keys()}
-    weights = normalize_weight(weights)
-
-    profit = [calculate_average_return(stock_prices[symbol]) for symbol in stock_prices.keys()]
-    risk = [calculate_risk(stock_prices[symbol]) for symbol in stock_prices.keys()]
-
-    sharpe_ratio = objective_function(weights, profit, risk)
+    final_solution = hill_climbing(initial_solution)
+    sharpe_ratio = evaluate_solution(final_solution)
     print(sharpe_ratio)
