@@ -1,31 +1,31 @@
 import pandas as pd
-import glob
 import random
 import numpy as np
-
-# Get all CSV file paths
-csv_files = glob.glob("archive/*.csv")
-
-
-df_list = [pd.read_csv(csv_files[0])]
-
-# Read the rest without headers
-df_list += [pd.read_csv(file, header=None) for file in csv_files[1:]]
-
-# Assign column names from the first file to all
-for df in df_list[1:]:
-    df.columns = df_list[0].columns
-
-# Concatenate all DataFrames
-final_df = pd.concat(df_list, ignore_index=True)
-
-final_df['Date'] = pd.to_datetime(final_df['Date'], errors='coerce')
-
-print(final_df)
+import os
 
 # ###########################################
 #             Auxiliar Functions
 # ###########################################
+
+def get_date_range():
+    dates = pd.date_range('2000-01-02', '2020-04-02')
+    print("Choose a start and end date for the analysis (Format: YYYY-MM-DD)")
+    while True:
+        start_date = input("Start date: ")
+        if start_date in dates:
+            break
+        print("Please enter a valid date")
+
+    while True:
+        end_date = input("End date: ")
+        if end_date in dates:
+            break
+        print("Please enter a valid date")
+
+    if start_date > end_date:
+        print("Please enter a valid date")
+        exit(1)
+    return pd.date_range(start_date, end_date)
 
 # Evaluates the profit per day
 # @param prices: a vector of the asset close prices
@@ -36,7 +36,7 @@ def calculate_daily_returns(prices):
 # Evaluated the risk
 # @param prices: a vector of the asset close prices
 # @return: standard deviation of daily_returns
-def calculate_volatility(prices):
+def calculate_risk(prices):
     daily_returns = calculate_daily_returns(prices)
     return np.std(daily_returns)
 
@@ -47,10 +47,10 @@ def calculate_average_return(prices):
     daily_returns = calculate_daily_returns(prices)
     return np.mean(daily_returns)
 
-# Normalizes weigths so that the sum is 1 -> constraint
+# Normalizes weights so that the sum is 1 -> constraint
 # @param weights: a vector of asset weights in the portfolio
 # @return: normalized vector of asset weights
-def normalize_weigth(weight):
+def normalize_weight(weight):
     total_weight = sum(weight.values())
     weight = {k: v / total_weight for k, v in weight.items()}
     return weight
@@ -67,24 +67,24 @@ def normalize_weigth(weight):
 def calculate_portfolio_return(weights, returns):
     return np.dot(list(weights.values()), returns)  # Retorno ponderado
 
-# Computes the portfolio volatility
+# Computes the portfolio risk
 # @param weights: a vector of asset weights in the portfolio
-# @param volatilities: a vector of the returns for each asset in the portfolio
-# @return: square root of the sum of the weighted_volatilities
-def calculate_portfolio_volatility(weights, volatilities):
-    weighted_volatilities = [w * v for w, v in zip(weights.values(), volatilities)] # multiplies each asset's weight by its asset's volatility
-    portfolio_volatility = np.sqrt(np.sum(weighted_volatilities))
-    return portfolio_volatility
+# @param risks: a vector of the returns for each asset in the portfolio
+# @return: square root of the sum of the weighted_risks
+def calculate_portfolio_risk(weights, risks):
+    weighted_risks = [w * v for w, v in zip(weights.values(), risks)] # multiplies each asset's weight by its asset's risk
+    portfolio_risk = np.sqrt(np.sum(weighted_risks))
+    return portfolio_risk
 
 # Evaluation Function
 # @param weights: a vector of asset weights in the portfolio
 # @param returns: a vector of the returns for each asset in the portfolio
-# @param volatilities: a vector of the returns for each asset in the portfolio
-# @return: ratio of the portfolio's return to its volatility
-def objective_function(weights, returns, volatilities):
+# @param risks: a vector of the returns for each asset in the portfolio
+# @return: ratio of the portfolio's return to its risk
+def objective_function(weights, returns, risks):
     portfolio_return = calculate_portfolio_return(weights, returns)
-    portfolio_volatility = calculate_portfolio_volatility(weights, volatilities)
-    sharpe_ratio = portfolio_return / portfolio_volatility
+    portfolio_risk = calculate_portfolio_risk(weights, risks)
+    sharpe_ratio = portfolio_return / portfolio_risk
     return sharpe_ratio
 
 # ###########################################
@@ -104,27 +104,38 @@ def generate_neighbour(weights):
     weight_change = random.choice([-threshold, threshold]) #randomly decide whether to add or subtract the threshold
     new_weights[idx] += weight_change
     
-    return normalize_weigth(new_weights)
+    return normalize_weight(new_weights)
 
 ##########################################
 #         Simple Implementation
 ###########################################
-# My ideia here was to create a list with a few stocks and set random weights to each stock to start with, 
-# then for each stock compute the volatility (risk), the return (profit) and evaluate it by returning the sharpe ratio (objective_function)
+# My idea here was to create a list with a few stocks and set random weights to each stock to start with,
+# then for each stock compute the risk (risk), the return (profit) and evaluate it by returning the sharpe ratio (objective_function)
+if __name__ == '__main__':
+    print("Stock Portfolio Optimization\n")
+    dates = pd.date_range('2000-01-02', '2020-04-02')
+    stocks = [stock.split('.')[0] for stock in sorted(os.listdir('archive'))]
+    valid_dates = get_date_range()
 
-# Some stocks names to start with :)
-symbols = ['A2M', 'AGL', 'ALL']
-prices = {
-    'A2M': pd.Series([150, 155, 160, 158, 165]),
-    'AGL': pd.Series([2800, 2825, 2850, 2835, 2860]),
-    'ALL': pd.Series([3400, 3450, 3480, 3465, 3500])
-}
+    stock_close_dict = {}
+    valid_stocks = []
 
-weights = {symbol: random.random() for symbol in symbols}
-weights = normalize_weigth(weights)
+    for stock in stocks:
+        date_adjClose_list = []
+        pc = pd.read_csv(f'archive/{stock}.csv', usecols=['Date', 'Adj Close'])
+        pc['Date'] = pd.to_datetime(pc['Date'])
+        pc = pc[pc['Date'].isin(valid_dates)]
+        for index, row in pc.iterrows():
+            date_adjClose_list.append(row['Adj Close'])
+        if len(date_adjClose_list) > 0:
+            stock_close_dict[stock] = pd.Series(date_adjClose_list)
+            valid_stocks.append(stock)
 
-profit = [calculate_average_return(prices[symbol]) for symbol in symbols]
-risk = [calculate_volatility(prices[symbol]) for symbol in symbols]
+    weights = {symbol: random.random() for symbol in valid_stocks}
+    weights = normalize_weight(weights)
 
-sharpe_ratio = objective_function(weights, profit, risk)
-print(sharpe_ratio)
+    profit = [calculate_average_return(stock_close_dict[symbol]) for symbol in valid_stocks]
+    risk = [calculate_risk(stock_close_dict[symbol]) for symbol in valid_stocks]
+
+    sharpe_ratio = objective_function(weights, profit, risk)
+    print(sharpe_ratio)
