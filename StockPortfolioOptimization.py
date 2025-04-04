@@ -11,6 +11,7 @@ import shutil
 
 # Global Variables
 stock_prices = {}
+stock_opening_prices = {}
 algorithm_metrics = {
     'hill_climbing': {'time': [], 'best_score': []},
     'simulated_annealing': {'time': [], 'best_score': []},
@@ -60,8 +61,10 @@ def get_date_range():
     return pd.date_range(start_date, end_date)
 
 
-def load_stock_data(valid_dates, stock_limit=None):
+def load_stock_data(valid_dates, stock_limit=None, used_stocks=None):
     """Load stock data with optional limit on number of stocks"""
+    if used_stocks is None:
+        used_stocks = []
     global stock_prices
     stock_prices = {}
 
@@ -69,13 +72,17 @@ def load_stock_data(valid_dates, stock_limit=None):
     if stock_limit:
         stocks = stocks[:stock_limit]
 
+    if len(used_stocks) > 0:
+        stocks = used_stocks
+
     for stock in stocks:
         try:
-            pc = pd.read_csv(f'archive/{stock}.csv', usecols=['Date', 'Adj Close'])
+            pc = pd.read_csv(f'archive/{stock}.csv', usecols=['Date', 'Open', 'Adj Close'])
             pc['Date'] = pd.to_datetime(pc['Date'])
             pc = pc[pc['Date'].isin(valid_dates)]
             if len(pc) > 0:
                 stock_prices[stock] = pc['Adj Close']
+                stock_opening_prices[stock] = pc['Open']
         except:
             continue
 
@@ -119,6 +126,17 @@ def evaluate_portfolio(weights):
     """Evaluate portfolio using Sharpe ratio"""
     if not stock_prices:
         raise ValueError("No stock data loaded")
+
+    # Handle single day evaluations
+    if all(len(prices) == 1 for prices in stock_prices.values()):
+        returns = []
+        for symbol in weights.keys():
+            open_price = stock_opening_prices[symbol].iloc[0]
+            adj_close_price = stock_prices[symbol].iloc[0]
+            ret = (adj_close_price - open_price) / open_price
+            returns.append(ret)
+        portfolio_return = np.dot(list(weights.values()), returns)
+        return portfolio_return
 
     returns = [calculate_average_return(stock_prices[symbol]) for symbol in weights.keys()]
     risks = [calculate_risk(stock_prices[symbol]) for symbol in weights.keys()]
@@ -347,6 +365,29 @@ def plot_optimization_process(scores, algorithm_name, instance_dir=None, timesta
     else:
         plt.show()
 
+def plot_solution(solution, algorithm_name, instance_dir=None, timestamp=None):
+    """Plot the solution weights for each stock"""
+    plt.figure(figsize=(10, 6))
+    stocks = list(solution.keys())
+    weights = list(solution.values())
+
+    plt.bar(stocks, weights)
+    plt.title(f'{algorithm_name} Solution Weights')
+    plt.xlabel('Stocks')
+    plt.ylabel('Weights')
+    plt.xticks(rotation=90)
+    plt.grid(True)
+
+    if instance_dir:
+        if timestamp is None:
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        plot_name = f"{algorithm_name.replace(' ', '_')}_solution_{timestamp}.png"
+        plot_path = os.path.join(instance_dir, plot_name)
+        plt.savefig(plot_path)
+        plt.close()
+    else:
+        plt.show()
+
 
 def plot_algorithm_comparison(instance_dir=None, algorithms_to_compare=None):
     """Compare performance of selected algorithms"""
@@ -474,6 +515,7 @@ def run_optimization(algorithm, initial_solution, parameters, instance_dir=None)
 
     timestamp = save_results(instance_dir, solution, score, algorithm, parameters, execution_time)
     plot_optimization_process(scores, algorithm.replace('_', ' ').title(), instance_dir, timestamp)
+    plot_solution(solution, algorithm.replace('_', ' ').title(), instance_dir, timestamp)
 
     return solution, score, scores, execution_time
 
@@ -556,7 +598,7 @@ def load_problem_instance_interactive():
         print("Invalid choice, please try again")
 
     stocks, dates, instance_dir = load_problem_instance(instance_name)
-    load_stock_data(dates)
+    load_stock_data(dates, used_stocks=stocks)
     print(f"Loaded problem instance '{instance_name}' with {len(stocks)} stocks")
     return stocks, dates, instance_dir
 
@@ -592,6 +634,7 @@ def run_algorithms_interactive(stocks, instance_dir):
                 print(f"\nRunning {algo_name.replace('_', ' ').title()}...")
                 solution, score, _, _ = run_optimization(algo_name, initial_solution, params, instance_dir)
                 print(f"Best Sharpe Ratio: {score:.4f}")
+                print(f"Obtained solution: {solution}")
             break
         elif choice in algorithms:
             # Run single algorithm
@@ -616,9 +659,11 @@ def run_algorithms_interactive(stocks, instance_dir):
                 else:  # Only run if we didn't break out of the loop
                     solution, score, _, _ = run_optimization(algo_name, initial_solution, params, instance_dir)
                     print(f"Best Sharpe Ratio: {score:.4f}")
+                    print(f"Obtained solution: {solution}")
             elif customize == 'n':
                 solution, score, _, _ = run_optimization(algo_name, initial_solution, params, instance_dir)
                 print(f"Best Sharpe Ratio: {score:.4f}")
+                print(f"Obtained solution: {solution}")
             break
         else:
             print("Invalid choice, please try again")
