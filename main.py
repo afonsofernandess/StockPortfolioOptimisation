@@ -25,6 +25,7 @@ if not os.path.exists('instances'):
     os.makedirs('instances')
 
 def load_stock_data(valid_date):
+    """Load stock opening and closing price for a specific date"""
     global stock_prices
     stock_prices = {}
 
@@ -88,6 +89,7 @@ def generate_neighbor(weights, mutation_rate=0.1):
 # ###########################################
 
 def hill_climbing(initial_solution, date, max_iterations=1000, neighbor_count=10):
+    """Hill Climbing optimization algorithm"""
     start_time = time.time()
     current_solution = initial_solution
     current_score = evaluate_portfolio(current_solution)
@@ -394,7 +396,7 @@ def run_algorithms_interactive(instance_dir):
 
 
 def compare_algorithms_interactive(instance_dir):
-    """Interactive algorithm comparison"""
+    """Compare performance of different algorithms for a specific day"""
     if not instance_dir or not os.path.isdir(instance_dir):
         print("\nInvalid or missing instance directory.")
         return
