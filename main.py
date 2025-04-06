@@ -4,6 +4,7 @@ import numpy as np
 import os
 from collections import deque
 import time
+from datetime import datetime
 
 import auxiliar as aux
 import visualisation as vis
@@ -430,15 +431,15 @@ def compare_algorithms_interactive(instance_dir):
             print("Invalid input. Please enter a number.")
 
     day_dir = os.path.join(instance_dir, selected_date)
-    datetime = pd.to_datetime(selected_date)
-    available_algorithms = [algo for algo in algorithm_metrics if algorithm_metrics[algo].get(datetime) and algorithm_metrics[algo][datetime]['best_score']]
+    dt = pd.to_datetime(selected_date)
+    available_algorithms = [algo for algo in algorithm_metrics if algorithm_metrics[algo].get(dt) and algorithm_metrics[algo][dt]['best_score']]
     if not available_algorithms:
         print("\nNo algorithms have been run yet. Please run some algorithms first.")
         return
 
     print("\nAvailable algorithm results:")
     for i, algo in enumerate(available_algorithms, 1):
-        run_count = len(algorithm_metrics[algo][datetime]['best_score'])
+        run_count = len(algorithm_metrics[algo][dt]['best_score'])
         print(f"{i}. {algo.replace('_', ' ').title()} ({run_count} run{'s' if run_count > 1 else ''})")
 
     print(f"{len(available_algorithms) + 1}. All available algorithms")
@@ -478,7 +479,7 @@ def compare_all_algorithms(instance_dir):
         print("\nInvalid or missing instance directory.")
         return
 
-    available_dates = [d for d in os.listdir(instance_dir) if os.path.isdir(os.path.join(instance_dir, d))]
+    available_dates = sorted([d for d in os.listdir(instance_dir) if os.path.isdir(os.path.join(instance_dir, d))], key=lambda x: datetime.strptime(x, '%Y-%m-%d'))
 
     if not available_dates:
         print("\nNo results available. Please run some algorithms first.")
