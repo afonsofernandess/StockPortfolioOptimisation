@@ -2,11 +2,12 @@ import pandas as pd
 import random
 import numpy as np
 import os
-import matplotlib.pyplot as plt
-from datetime import datetime
-import json
 from collections import deque
 import time
+
+import auxiliar as aux
+import visualisation as vis
+import instance_management as io
 
 # Global Variables
 stock_prices = {}
@@ -22,44 +23,6 @@ dates = None
 # Create instances directory if it doesn't exist
 if not os.path.exists('instances'):
     os.makedirs('instances')
-
-
-# ###########################################
-#             Auxiliar Functions
-# ###########################################
-
-def get_date_range():
-    """Get valid date range from user input"""
-    dates = pd.date_range('2000-01-02', '2020-04-02')
-    print("Choose a start and end date for the analysis (Format: YYYY-MM-DD)")
-    while True:
-        start_date = input("Start date (or 'back' to return): ")
-        if start_date.lower() == 'back':
-            return None
-        try:
-            if pd.to_datetime(start_date) in dates:
-                break
-        except:
-            pass
-        print("Please enter a valid date between 2000-01-02 and 2020-04-02")
-
-    while True:
-        end_date = input("End date (or 'back' to return): ")
-        if end_date.lower() == 'back':
-            return None
-        try:
-            if pd.to_datetime(end_date) in dates:
-                break
-        except:
-            pass
-        print("Please enter a valid date between 2000-01-02 and 2020-04-02")
-
-    if pd.to_datetime(start_date) > pd.to_datetime(end_date):
-        print("End date must be after start date")
-        exit(1)
-
-    return pd.date_range(start_date, end_date)
-
 
 def load_stock_data(valid_date):
     global stock_prices
@@ -81,18 +44,6 @@ def load_stock_data(valid_date):
             continue
 
     return stock_prices
-
-
-def initialize_portfolio(stocks):
-    """Generate random initial portfolio weights"""
-    weights = {symbol: random.random() for symbol in stocks}
-    return normalize_weights(weights)
-
-
-def normalize_weights(weights):
-    """Normalize weights to sum to 1"""
-    total_weight = sum(weights.values())
-    return {k: v / total_weight for k, v in weights.items()}
 
 # ###########################################
 #             Evaluation Function
@@ -129,7 +80,7 @@ def generate_neighbor(weights, mutation_rate=0.1):
 
     # Ensure weights stay positive
     new_weights = {k: max(v, 0) for k, v in new_weights.items()}
-    return normalize_weights(new_weights)
+    return aux.normalize_weights(new_weights)
 
 
 # ###########################################
@@ -250,7 +201,7 @@ def genetic_algorithm(date, population_size=20, generations=100, mutation_rate=0
     stocks = list(stock_prices.keys())
 
     # Initialize population
-    population = [initialize_portfolio(stocks) for _ in range(population_size)]
+    population = [aux.initialize_portfolio(stocks) for _ in range(population_size)]
     best_solution = max(population, key=evaluate_portfolio)
     best_score = evaluate_portfolio(best_solution)
 
@@ -275,7 +226,10 @@ def genetic_algorithm(date, population_size=20, generations=100, mutation_rate=0
                 parent2 = new_population[i + 1]
 
                 # Single-point crossover
-                crossover_point = random.randint(1, len(stocks) - 1)
+                if len(stocks) > 1:
+                    crossover_point = random.randint(1, len(stocks) - 1)
+                else:
+                    crossover_point = 0
                 keys = list(parent1.keys())
 
                 child1 = {**parent1}
@@ -285,8 +239,8 @@ def genetic_algorithm(date, population_size=20, generations=100, mutation_rate=0
                 for j in range(crossover_point, len(keys)):
                     child1[keys[j]], child2[keys[j]] = child2[keys[j]], child1[keys[j]]
 
-                new_population[i] = normalize_weights(child1)
-                new_population[i + 1] = normalize_weights(child2)
+                new_population[i] = aux.normalize_weights(child1)
+                new_population[i + 1] = aux.normalize_weights(child2)
 
         # Mutation
         for i in range(population_size):
@@ -311,174 +265,6 @@ def genetic_algorithm(date, population_size=20, generations=100, mutation_rate=0
     algorithm_metrics['genetic_algorithm'][date]['best_score'].append(best_score)
     return best_solution, best_score, scores, execution_time
 
-
-# ###########################################
-#             Visualization
-# ###########################################
-
-def plot_optimization_process(scores, algorithm_name, date, instance_dir=None, timestamp=None):
-    """Plot the optimization progress over iterations"""
-    resultdir = os.path.join(instance_dir, date.strftime('%Y-%m-%d'))
-    if not os.path.exists(resultdir):
-        os.makedirs(resultdir)
-
-    plt.figure(figsize=(10, 6))
-    plt.plot(scores, label='Best Score')
-    plt.title(f'{algorithm_name} Optimization Progress')
-    plt.xlabel('Iteration')
-    plt.ylabel('Sharpe Ratio')
-    plt.legend()
-    plt.grid(True)
-
-    if instance_dir:
-        if timestamp is None:
-            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        plot_name = f"{algorithm_name.replace(' ', '_')}_progress_{timestamp}.png"
-        plot_path = os.path.join(resultdir, plot_name)
-        plt.savefig(plot_path)
-        plt.close()
-    else:
-        plt.show()
-
-def plot_solution(solution, algorithm_name, date, instance_dir=None, timestamp=None):
-    """Plot the solution weights for each stock"""
-    resultdir = os.path.join(instance_dir, date.strftime('%Y-%m-%d'))
-    if not os.path.exists(resultdir):
-        os.makedirs(resultdir)
-
-    plt.figure(figsize=(20, 6))
-    stocks = list(solution.keys())
-    weights = list(solution.values())
-
-    plt.bar(stocks, weights)
-    plt.title(f'{algorithm_name} Solution Weights')
-    plt.xlabel('Stocks')
-    plt.ylabel('Weights')
-    plt.xticks(rotation=90)
-    plt.grid(True)
-
-    if instance_dir:
-        if timestamp is None:
-            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        plot_name = f"{algorithm_name.replace(' ', '_')}_solution_{timestamp}.png"
-        plot_path = os.path.join(resultdir, plot_name)
-        plt.savefig(plot_path)
-        plt.show()
-        plt.close()
-    else:
-        plt.show()
-
-
-def plot_algorithm_comparison(date, instance_dir=None, algorithms_to_compare=None):
-    """Compare performance of selected algorithms"""
-    if not algorithms_to_compare:
-        print("No algorithms selected for comparison")
-        return
-    datetime = pd.to_datetime(date)
-
-    plt.figure(figsize=(12, 6))
-
-    # Create display names with run counts below the main name
-    display_names = []
-    for algo in algorithms_to_compare:
-        run_count = len(algorithm_metrics[algo][datetime]['best_score'])
-        name = algo.replace('_', ' ').title()
-        if run_count > 1:
-            name += f"\n(avg of {run_count} runs)"
-        display_names.append(name)
-
-    # Plot solution quality comparison
-    plt.subplot(1, 2, 1)
-    scores = [np.mean(algorithm_metrics[algo][datetime]['best_score']) for algo in algorithms_to_compare]
-    bars = plt.bar(display_names, scores)
-    plt.title('Average Solution Quality')
-    plt.ylabel('Score')
-
-    # Adjust the text position for better visibility
-    for bar in bars:
-        height = bar.get_height()
-        plt.text(bar.get_x() + bar.get_width() / 2., height,
-                 f'{height:.4f}',
-                 ha='center', va='bottom')
-
-    # Plot time comparison
-    plt.subplot(1, 2, 2)
-    times = [np.mean(algorithm_metrics[algo][datetime]['time']) for algo in algorithms_to_compare]
-    bars = plt.bar(display_names, times)
-    plt.title('Average Execution Time')
-    plt.ylabel('Seconds')
-
-    # Adjust the text position for better visibility
-    for bar in bars:
-        height = bar.get_height()
-        plt.text(bar.get_x() + bar.get_width() / 2., height,
-                 f'{height:.2f}s',
-                 ha='center', va='bottom')
-
-    plt.tight_layout()
-
-    if instance_dir:
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        plot_path = os.path.join(instance_dir, f"Algorithm_comparison_{timestamp}.png")
-        plt.savefig(plot_path)
-        plt.close()
-    else:
-        plt.show()
-
-# ###########################################
-#             File I/O
-# ###########################################
-
-def save_problem_instance(instance_name, dates):
-    """Save problem instance to file in its directory"""
-    instance_dir = os.path.join('instances', instance_name)
-    if not os.path.exists(instance_dir):
-        os.makedirs(instance_dir)
-
-    data = {
-        'start_date': str(dates[0]),
-        'end_date': str(dates[-1])
-    }
-
-    filename = os.path.join(instance_dir, f"{instance_name}_instance.json")
-    with open(filename, 'w') as f:
-        json.dump(data, f)
-
-    return instance_dir
-
-
-def load_problem_instance(instance_name):
-    """Load problem instance from file in its directory"""
-    instance_dir = os.path.join('instances', instance_name)
-    filename = os.path.join(instance_dir, f"{instance_name}_instance.json")
-
-    with open(filename, 'r') as f:
-        data = json.load(f)
-    return pd.date_range(data['start_date'], data['end_date']), instance_dir
-
-
-def save_results(instance_dir, solution, score, algorithm_name, parameters, execution_time, date):
-    """Save optimization results to file in instance directory"""
-    newdir = os.path.join(instance_dir, date.strftime('%Y-%m-%d'))
-    if not os.path.exists(newdir):
-        os.makedirs(newdir)
-    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    results = {
-        'algorithm': algorithm_name,
-        'solution': solution,
-        'score': score,
-        'parameters': parameters,
-        'execution_time': execution_time,
-        'timestamp': timestamp
-    }
-
-    filename = os.path.join(newdir, f"Results_{algorithm_name}_{timestamp}.json")
-    with open(filename, 'w') as f:
-        json.dump(results, f, indent=2)
-
-    return timestamp
-
-
 # ###########################################
 #             Main Interface
 # ###########################################
@@ -496,9 +282,9 @@ def run_optimization(algorithm, initial_solution, parameters, date, instance_dir
     else:
         raise ValueError("Unknown algorithm")
 
-    timestamp = save_results(instance_dir, solution, score, algorithm, parameters, execution_time, date)
-    plot_optimization_process(scores, algorithm.replace('_', ' ').title(), date, instance_dir, timestamp)
-    plot_solution(solution, algorithm.replace('_', ' ').title(), date, instance_dir, timestamp)
+    timestamp = io.save_results(instance_dir, solution, score, algorithm, parameters, execution_time, date)
+    vis.plot_optimization_process(scores, algorithm.replace('_', ' ').title(), date, instance_dir, timestamp)
+    vis.plot_solution(solution, algorithm.replace('_', ' ').title(), date, instance_dir, timestamp)
 
     return solution, score, scores, execution_time
 
@@ -519,65 +305,6 @@ def main_menu():
         if choice in ['1', '2', '3', '4', '5']:
             return choice
         print("Invalid choice, please try again")
-
-
-def create_problem_instance():
-    """Create and save a new problem instance"""
-    global dates
-    dates = get_date_range()
-    if dates is None:  # User chose to go back
-        return None, None
-
-    instance_name = input("Enter a name for this problem instance (or 'back' to return): ")
-    if instance_name.lower() == 'back':
-        return None, None
-
-    instance_dir = save_problem_instance(instance_name, dates)
-    print(f"Problem instance saved to {instance_dir}")
-    return dates, instance_dir
-
-
-def load_problem_instance_interactive():
-    """Load problem instance from directory"""
-    print("\nAvailable instances:")
-    instances = [d for d in os.listdir('instances') if os.path.isdir(os.path.join('instances', d))]
-
-    if not instances:
-        print("No instances available. Please create one first.")
-        return None, None
-
-    for i, instance in enumerate(instances, 1):
-        print(f"{i}. {instance}")
-    print(f"{len(instances) + 1}. Back to main menu")
-
-    while True:
-        choice = input("Select instance to load (number or name, or 'back' to return): ")
-        if choice.lower() == 'back':
-            return None, None
-
-        try:
-            # Try to interpret as number
-            if choice.isdigit():
-                choice_num = int(choice)
-                if choice_num == len(instances) + 1:
-                    return None, None
-                if 1 <= choice_num <= len(instances):
-                    instance_name = instances[choice_num - 1]
-                    break
-            else:
-                # Treat as name
-                if choice in instances:
-                    instance_name = choice
-                    break
-        except:
-            pass
-
-        print("Invalid choice, please try again")
-
-    global dates
-    dates, instance_dir = load_problem_instance(instance_name)
-    return dates, instance_dir
-
 
 def run_algorithms_interactive(instance_dir):
     """Run optimization algorithms with user parameters"""
@@ -605,12 +332,15 @@ def run_algorithms_interactive(instance_dir):
         if choice == '5':
             # Run all algorithms
             for date in dates:
-                print(f"\nDay: {date}")
+                print(f"\nDay: {date.strftime('%Y-%m-%d')}")
+                load_stock_data(date)
+                if(not stock_prices):
+                    print("No stock data available for this date.")
+                    continue
                 for algo_name, params in algorithms.values():
                     print(f"Running {algo_name.replace('_', ' ').title()}...")
 
-                    load_stock_data(date)
-                    initial_solution = initialize_portfolio(stock_prices)
+                    initial_solution = aux.initialize_portfolio(stock_prices)
                     solution, score, _, _ = run_optimization(algo_name, initial_solution, params, date, instance_dir)
                     print(f"Best Sharpe Ratio: {score:.4f}")
                     print(f"Obtained solution: {solution}")
@@ -637,17 +367,23 @@ def run_algorithms_interactive(instance_dir):
                             print(f"Invalid value for {param}, keeping default")
                 else:  # Only run if we didn't break out of the loop
                     for date in dates:
-                        print(f"Day: {date}")
+                        print(f"Day: {date.strftime('%Y-%m-%d')}")
                         load_stock_data(date)
-                        initial_solution = initialize_portfolio(stock_prices)
+                        if not stock_prices:
+                            print("No stock data available for this date.")
+                            continue
+                        initial_solution = aux.initialize_portfolio(stock_prices)
                         solution, score, _, _ = run_optimization(algo_name, initial_solution, params, date, instance_dir)
                         print(f"Best Score: {score:.4f}")
                         print(f"Obtained solution: {solution}")
             elif customize == 'n':
                 for date in dates:
-                    print(f"Day: {date}")
+                    print(f"Day: {date.strftime}")
                     load_stock_data(date)
-                    initial_solution = initialize_portfolio(stock_prices)
+                    if not stock_prices:
+                        print("No stock data available for this date.")
+                        continue
+                    initial_solution = aux.initialize_portfolio(stock_prices)
                     solution, score, _, _ = run_optimization(algo_name, initial_solution, params, date, instance_dir)
                     print(f"Best Score: {score:.4f}")
                     print(f"Obtained solution: {solution}")
@@ -728,7 +464,7 @@ def compare_algorithms_interactive(instance_dir):
                 print("No valid algorithms selected")
                 continue
 
-            plot_algorithm_comparison(selected_date, day_dir, algorithms_to_compare)
+            vis.plot_algorithm_comparison(selected_date, algorithm_metrics, day_dir, algorithms_to_compare)
             print("\nComparison completed and saved to instance directory")
             break
         except ValueError:
@@ -753,11 +489,11 @@ if __name__ == '__main__':
         if choice == 'back':
             continue
         elif choice == '1':
-            result = create_problem_instance()
+            result = io.create_problem_instance()
             if result[0] is not None and result[1] is not None:  # Only update if not going back
                 dates, instance_dir = result
         elif choice == '2':
-            result = load_problem_instance_interactive()
+            result = io.load_problem_instance_interactive()
             if result[0] is not None and result[1] is not None:  # Only update if not going back
                 dates, instance_dir = result
         elif choice == '3':
