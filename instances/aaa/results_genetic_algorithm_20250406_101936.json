@@ -1,0 +1,28 @@
+{
+  "algorithm": "genetic_algorithm",
+  "solution": {
+    "A2M": 0.0,
+    "AGL": 0.0,
+    "ALL": 0.03430949234787418,
+    "ALQ": 0.013051940544681022,
+    "ALU": 0.5155526951859019,
+    "ALX": 0.0,
+    "AMC": 0.0,
+    "AMP": 0.0,
+    "ANN": 0.0,
+    "ANZ": 0.0,
+    "APA": 0.3027150881410122,
+    "AST": 0.0010125802180094984,
+    "ASX": 0.057354375271125815,
+    "AWC": 0.07600382829139539
+  },
+  "score": 0.039385787249515435,
+  "parameters": {
+    "population_size": 20,
+    "generations": 100,
+    "mutation_rate": 0.1,
+    "crossover_rate": 0.8
+  },
+  "execution_time": 26.732417583465576,
+  "timestamp": "20250406_101936"
+}
