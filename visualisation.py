@@ -117,10 +117,14 @@ def plot_all_algorithm_comparison(dates, all_scores, instance_dir):
     """Plot comparison of all algorithms over multiple days"""
     plt.figure(figsize=(16, 10))
 
+    markers = ['o', 'x', '|', 'v']
+    i = 0
+
     for algo, scores in all_scores.items():
         if any(score is None for score in scores):
             continue
-        plt.plot(dates, scores, label=algo.replace('_', ' ').title())
+        plt.plot(dates, scores, label=algo.replace('_', ' ').title(), marker=markers[i])
+        i += 1
 
     plt.title('Algorithm Performance Comparison Over Time')
     plt.xlabel('Date')
