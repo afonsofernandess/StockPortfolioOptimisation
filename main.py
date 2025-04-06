@@ -378,7 +378,7 @@ def run_algorithms_interactive(instance_dir):
                         print(f"Obtained solution: {solution}")
             elif customize == 'n':
                 for date in dates:
-                    print(f"Day: {date.strftime}")
+                    print(f"Day: {date.strftime('%Y-%m-%d')}")
                     load_stock_data(date)
                     if not stock_prices:
                         print("No stock data available for this date.")
@@ -428,8 +428,7 @@ def compare_algorithms_interactive(instance_dir):
 
     day_dir = os.path.join(instance_dir, selected_date)
     datetime = pd.to_datetime(selected_date)
-    available_algorithms = [algo for algo in algorithm_metrics if algorithm_metrics[algo][datetime]['best_score']]
-
+    available_algorithms = [algo for algo in algorithm_metrics if algorithm_metrics[algo].get(datetime) and algorithm_metrics[algo][datetime]['best_score']]
     if not available_algorithms:
         print("\nNo algorithms have been run yet. Please run some algorithms first.")
         return
