@@ -316,8 +316,7 @@ def run_algorithms_interactive(instance_dir):
         '1': ('hill_climbing', {'max_iterations': 1000, 'neighbor_count': 10}),
         '2': ('simulated_annealing', {'max_iterations': 3000, 'initial_temp': 100, 'cooling_rate': 0.97}),
         '3': ('tabu_search', {'max_iterations': 1000, 'tabu_size': 10, 'neighbor_count': 10}),
-        '4': (
-        'genetic_algorithm', {'population_size': 20, 'generations': 100, 'mutation_rate': 0.1, 'crossover_rate': 0.8})
+        '4': ('genetic_algorithm', {'population_size': 25, 'generations': 350, 'mutation_rate': 0.18, 'crossover_rate': 0.6})
     }
 
     print("\nSelect algorithm to run:")
