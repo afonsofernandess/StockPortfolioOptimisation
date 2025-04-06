@@ -112,3 +112,27 @@ def plot_algorithm_comparison(date, algorithm_metrics, instance_dir=None, algori
         plt.close()
     else:
         plt.show()
+
+def plot_all_algorithm_comparison(dates, all_scores, instance_dir):
+    """Plot comparison of all algorithms over multiple days"""
+    plt.figure(figsize=(12, 6))
+
+    for algo, scores in all_scores.items():
+        if any(score is None for score in scores):
+            continue
+        plt.plot(dates, scores, label=algo.replace('_', ' ').title())
+
+    plt.title('Algorithm Performance Comparison Over Time')
+    plt.xlabel('Date')
+    plt.ylabel('Average Score')
+    plt.legend()
+    plt.grid(True)
+
+    if instance_dir:
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        plot_path = os.path.join(instance_dir, f"All_algorithm_comparison_{timestamp}.png")
+        plt.savefig(plot_path)
+        plt.show()
+        plt.close()
+    else:
+        plt.show()

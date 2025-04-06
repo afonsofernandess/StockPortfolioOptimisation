@@ -295,14 +295,15 @@ def main_menu():
     print("1. Create new problem instance")
     print("2. Load problem instance from directory")
     print("3. Run optimization algorithms")
-    print("4. Compare algorithm performance")
-    print("5. Exit")
+    print("4. Compare algorithm performance on a day")
+    print("5. Compare algorithm performance on all days")
+    print("6. Exit")
 
     while True:
         choice = input("Select an option (or 'back' to return): ")
         if choice.lower() == 'back':
             return 'back'
-        if choice in ['1', '2', '3', '4', '5']:
+        if choice in ['1', '2', '3', '4', '5', '6']:
             return choice
         print("Invalid choice, please try again")
 
@@ -469,6 +470,33 @@ def compare_algorithms_interactive(instance_dir):
         except ValueError:
             print("Invalid input. Please enter numbers separated by commas.")
 
+def compare_all_algorithms(instance_dir):
+    """Compare performance of all algorithms for each day in the instance"""
+    if not instance_dir or not os.path.isdir(instance_dir):
+        print("\nInvalid or missing instance directory.")
+        return
+
+    available_dates = [d for d in os.listdir(instance_dir) if os.path.isdir(os.path.join(instance_dir, d))]
+
+    if not available_dates:
+        print("\nNo results available. Please run some algorithms first.")
+        return
+
+    all_scores = {algo: [] for algo in algorithm_metrics.keys()}
+    dates = []
+
+    for date_str in available_dates:
+        date = pd.to_datetime(date_str)
+        dates.append(date_str)
+        for algo in algorithm_metrics.keys():
+            if algorithm_metrics[algo].get(date) and algorithm_metrics[algo][date]['best_score']:
+                avg_score = np.mean(algorithm_metrics[algo][date]['best_score'])
+                all_scores[algo].append(avg_score)
+            else:
+                all_scores[algo].append(None)  # No score for this date
+
+    vis.plot_all_algorithm_comparison(dates, all_scores, instance_dir)
+
 
 # ###########################################
 #             Main Execution
@@ -503,6 +531,8 @@ if __name__ == '__main__':
         elif choice == '4':
             compare_algorithms_interactive(instance_dir)
         elif choice == '5':
+            compare_all_algorithms(instance_dir)
+        elif choice == '6':
             print("\nExiting...")
             break
         else:
